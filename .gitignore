@@ -1,0 +1,43 @@
+# Build outputs
+build/
+bin/
+out/
+cmake-build-*/
+
+# Binaries and object files
+pdcp_server
+pdcp_traffic_gen
+*.o
+*.obj
+*.so
+*.a
+*.dylib
+*.dll
+*.exe
+
+# CMake in-source build artifacts
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+compile_commands.json
+CTestTestfile.cmake
+
+# Dependency files
+*.d
+
+# Logs and crash dumps
+*.log
+core
+vgcore.*
+
+# Editor and toolchain directories
+.vscode/
+.idea/
+.clangd/
+*.swp
+*.swo
+*~
+
+# Operating system files
+.DS_Store
+Thumbs.db
