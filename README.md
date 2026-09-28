@@ -1,21 +1,21 @@
 # 5G NR PDCP Reordering Engine
 
-A lightweight C++17 user-space implementation of 3GPP TS 38.323 sequence reordering over UDP.
+A C++17 user-space implementation of 3GPP TS 38.323 sequence reordering over UDP sockets.
 
-## Motivation
+## Overview
 
-In 5G NR radio access networks, lower-layer retransmissions (HARQ and RLC AM) cause packets to arrive out of order. Upper-layer protocols like TCP interpret packet reordering as congestion, causing unnecessary throughput throttling. 
+In 5G NR radio access networks, lower-layer retransmissions (HARQ and RLC AM) frequently cause packets to arrive out of order. If passed directly to upper-layer TCP, packet reordering triggers duplicate ACKs and spurious congestion throttling.
 
-The PDCP (Packet Data Convergence Protocol) layer sits above RLC and restores strict in-order delivery before handing packets to the IP layer, using a sliding window and a reordering timer (`t-Reordering`) to prevent head-of-line blocking when packets are dropped over the radio interface.
+The PDCP layer restores strict in-order delivery before forwarding packets to the IP stack. This project implements a standalone PDCP sequence reordering engine using a sliding window buffer and a configurable `t-Reordering` timer to resolve sequence gaps without head-of-line blocking.
 
-## How It Works
+## Architecture
 
-1. **UDP Ingestion**: A receiver thread continuously drains UDP datagrams and pushes parsed packets into a bounded, thread-safe queue (`std::mutex` + `std::condition_variable`).
-2. **Sequence Reordering**: The worker thread evaluates each packet's Sequence Number (SN):
-   - **In-order (`SN == RX_DELIV`)**: Delivered immediately to the sink; triggers a check for any consecutively buffered packets.
-   - **Out-of-order (`SN > RX_DELIV`)**: Stored in the window buffer, and the `t-Reordering` timer is started if not already running.
-   - **Duplicate / Stale (`SN < RX_DELIV`)**: Dropped.
-3. **Gap Resolution**: If the missing packet does not arrive before `t-Reordering` expires, the buffer advances `RX_DELIV` to the next expected sequence to avoid stalling the pipeline.
+* **UDP Ingestion:** Dedicated receiver thread drains incoming UDP datagrams into a thread-safe bounded queue (`std::mutex` + `std::condition_variable`).
+* **Sequence Reordering:** Worker thread processes incoming packets according to Sequence Number (SN):
+  - In-order (`SN == RX_DELIV`): Passed immediately to the output sink, followed by any consecutively buffered packets.
+  - Out-of-order (`SN > RX_DELIV`): Stored in the window buffer, starting `t-Reordering` if not already running.
+  - Stale / Duplicate (`SN < RX_DELIV`): Dropped.
+* **Timer Expiration:** If a missing packet fails to arrive before `t-Reordering` expires, the buffer advances `RX_DELIV` to the first missing sequence number to keep the pipeline moving.
 
 ## Build
 
@@ -23,21 +23,19 @@ The PDCP (Packet Data Convergence Protocol) layer sits above RLC and restores st
 make
 ```
 
-## Quick Start
+## Running the Engine
 
-Start the server:
+Start the reordering server:
 ```bash
 ./build/pdcp_server -p 50500 -t 100
 ```
 
-In another terminal, send out-of-order test packets:
+Generate out-of-order test traffic in another terminal:
 ```bash
 ./build/pdcp_traffic_gen -n 10 --shuffle
 ```
 
-## CLI Options
-
-Pass `--help` to either binary for configuration flags:
+Flags and parameters:
 ```bash
 ./build/pdcp_server --help
 ./build/pdcp_traffic_gen --help
